@@ -210,18 +210,19 @@ void run_tunnel(char *dest, int server)
       else {
         set_echo_type(&packet);
       }
-      packet.payload = calloc(MTU, sizeof(uint8_t));
-      if (packet.payload == NULL){
+      packet.payload = calloc(MTU + PACKET_PREFIX_SIZE, sizeof(uint8_t));
+      if (packet.payload == NULL) {
         perror("No memory available\n");
         exit(EXIT_FAILURE);
       }
 
-      packet.payload_size  = tun_read(tun_fd, packet.payload, MTU);
+      strncpy(packet.payload, PACKET_PREFIX, PACKET_PREFIX_SIZE);
+      packet.payload_size  = tun_read(tun_fd, packet.payload + PACKET_PREFIX_SIZE, MTU);
       if(packet.payload_size  == -1) {
         perror("Error while reading from tun device\n");
         exit(EXIT_FAILURE);
       }
-
+      
       printf("[DEBUG] Sending ICMP packet with payload_size: %d, payload: %s\n", packet.payload_size, packet.payload);
       // Sending ICMP packet
       send_icmp_packet(sock_fd, &packet);
@@ -238,9 +239,13 @@ void run_tunnel(char *dest, int server)
       receive_icmp_packet(sock_fd, &packet);
 
       printf("[DEBUG] Read ICMP packet with src: %s, dest: %s, payload_size: %d, payload: %s\n", packet.src_addr, packet.dest_addr, packet.payload_size, packet.payload);
-      // Writing out to tun device
-      tun_write(tun_fd, packet.payload, packet.payload_size);
 
+      if (strncmp(PACKET_PREFIX, packet.payload, PACKET_PREFIX_SIZE) == 0) {
+	// Writing out to tun device
+	tun_write(tun_fd, packet.payload + PACKET_PREFIX_SIZE, packet.payload_size - PACKET_PREFIX_SIZE);
+      } else {
+	printf("[DEBUG] Skip ICMP packet\n");
+      }
       printf("[DEBUG] Src address being copied: %s\n", packet.src_addr);
       strncpy(dest, packet.src_addr, strlen(packet.src_addr) + 1);
       free(packet.payload);

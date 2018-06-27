@@ -6,7 +6,9 @@
 #define icmp_guard
 
 // Maximum transmission unit
-#define MTU 1472
+#define PACKET_PREFIX "ICMPTUN"
+#define PACKET_PREFIX_SIZE 7
+#define MTU 1472-PACKET_PREFIX_SIZE
 
 struct icmp_packet
 {
